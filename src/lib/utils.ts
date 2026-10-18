@@ -26,6 +26,14 @@ function getDoubanImageProxyConfig(): {
   };
 }
 
+function getImageProxy(): string {
+  return (
+    localStorage.getItem('imageProxy') ||
+    (window as any).RUNTIME_CONFIG?.IMAGE_PROXY ||
+    ''
+  );
+}
+
 /**
  * 处理图片 URL，如果设置了图片代理则使用代理
  */
@@ -49,8 +57,12 @@ export function processImageUrl(originalUrl: string): string {
     return `/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
   }
 
-  // 仅处理豆瓣图片代理
+  // 非豆瓣图片：如果配置了通用图片代理，走代理（Cloudflare Worker 缓存加速）
   if (!normalizedUrl.includes('doubanio.com')) {
+    const imageProxy = getImageProxy();
+    if (imageProxy) {
+      return `${imageProxy}${encodeURIComponent(normalizedUrl)}`;
+    }
     return normalizedUrl;
   }
 
