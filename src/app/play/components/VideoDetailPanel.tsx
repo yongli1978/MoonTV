@@ -5,7 +5,7 @@
 import { Download, Heart } from 'lucide-react';
 
 import { SearchResult } from '@/lib/types';
-import { processImageUrl } from '@/lib/utils';
+import { SmartImg } from '@/components/SmartImg';
 
 import { FollowingIconButton } from '@/components/FollowingIcon';
 
@@ -53,14 +53,10 @@ export function VideoDetailPanel(props: VideoDetailPanelProps) {
       {detail?.poster && (
         <div className='flex-shrink-0 mx-auto md:mx-0'>
           <div className='w-32 sm:w-40 md:w-48 lg:w-56 aspect-[2/3] rounded-lg overflow-hidden shadow-lg bg-gray-200 dark:bg-gray-700'>
-            <img
-              src={processImageUrl(detail.poster)}
+            <SmartImg
+              url={detail.poster}
               alt={videoTitle || '影片封面'}
               className='w-full h-full object-cover'
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
             />
           </div>
         </div>

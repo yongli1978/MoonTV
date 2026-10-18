@@ -91,6 +91,98 @@ export function processImageUrl(originalUrl: string): string {
 }
 
 /**
+ * 为图片 URL 构建降级候选链（LibreTV SmartImage 模式）。
+ * 返回按优先级排序的 URL 数组：调用方按顺序尝试加载，onError 时自动切换到下一个。
+ * 用户在本地设置里选的代理类型作为首选，其余按 [腾讯云, 阿里云, img3, 直连, 服务器代理] 顺序兜底。
+ * 所有候选都失败时调用方应停止尝试（避免无限循环）。
+ */
+export function buildImageCandidates(originalUrl: string): string[] {
+  if (!originalUrl) return [];
+
+  const normalizedUrl = originalUrl.trim();
+  if (!normalizedUrl) return [];
+
+  // 已经是本地代理、内联资源或本地资源时，直接返回（无需降级）
+  if (
+    normalizedUrl.startsWith('/api/image-proxy?url=') ||
+    normalizedUrl.startsWith('data:') ||
+    normalizedUrl.startsWith('blob:') ||
+    normalizedUrl.startsWith('/')
+  ) {
+    return [normalizedUrl];
+  }
+
+  // SSR 环境下没有 localStorage，返回原地址（客户端 hydration 后会重新计算）
+  if (typeof window === 'undefined') {
+    return [normalizedUrl];
+  }
+
+  // http 图片在 https 页面下会触发 Mixed Content，必须走服务端代理，无降级空间
+  if (normalizedUrl.startsWith('http://')) {
+    return [`/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`];
+  }
+
+  // 非豆瓣图片：通用 Worker 代理优先（如果配置了），失败时回退直连
+  if (!normalizedUrl.includes('doubanio.com')) {
+    const imageProxy = getImageProxy();
+    if (imageProxy) {
+      const proxied = `${imageProxy}${encodeURIComponent(normalizedUrl)}`;
+      return Array.from(new Set([proxied, normalizedUrl]));
+    }
+    return [normalizedUrl];
+  }
+
+  // 豆瓣图片：按用户偏好排序的降级链
+  const { proxyType, proxyUrl } = getDoubanImageProxyConfig();
+
+  const tencent = normalizedUrl.replace(
+    /img\d+\.doubanio\.com/g,
+    'img.doubanio.cmliussss.net'
+  );
+  const aliyun = normalizedUrl.replace(
+    /img\d+\.doubanio\.com/g,
+    'img.doubanio.cmliussss.com'
+  );
+  const img3 = normalizedUrl.replace(/img\d+\.doubanio\.com/g, 'img3.doubanio.com');
+  const server = `/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
+  const custom = proxyUrl
+    ? `${proxyUrl}${encodeURIComponent(normalizedUrl)}`
+    : '';
+
+  // 用户首选
+  let preferred: string;
+  switch (proxyType) {
+    case 'server':
+      preferred = server;
+      break;
+    case 'img3':
+      preferred = img3;
+      break;
+    case 'cmliussss-cdn-tencent':
+      preferred = tencent;
+      break;
+    case 'cmliussss-cdn-ali':
+      preferred = aliyun;
+      break;
+    case 'custom':
+      preferred = custom || normalizedUrl;
+      break;
+    case 'direct':
+    default:
+      preferred = normalizedUrl;
+      break;
+  }
+
+  // 降级顺序：用户首选 → 腾讯云 → 阿里云 → img3 → 直连 → 服务器代理
+  // new Set 去重，保证每个 URL 只出现一次
+  return Array.from(
+    new Set(
+      [preferred, tencent, aliyun, img3, normalizedUrl, server].filter(Boolean)
+    )
+  );
+}
+
+/**
  * 从m3u8地址获取视频质量等级和网络信息
  * @param m3u8Url m3u8播放列表的URL
  * @returns Promise<{quality: string, loadSpeed: string, pingTime: number}> 视频质量等级和网络信息

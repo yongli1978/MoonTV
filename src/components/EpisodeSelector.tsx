@@ -10,7 +10,8 @@ import React, {
 } from 'react';
 
 import { SearchResult } from '@/lib/types';
-import { getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
+import { getVideoResolutionFromM3u8 } from '@/lib/utils';
+import { SmartImg } from '@/components/SmartImg';
 
 // 定义视频信息类型
 interface VideoInfo {
@@ -600,14 +601,10 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                         {/* 封面 */}
                         <div className='flex-shrink-0 w-12 h-20 bg-gray-300 dark:bg-gray-600 rounded overflow-hidden'>
                           {source.episodes && source.episodes.length > 0 && (
-                            <img
-                              src={processImageUrl(source.poster)}
+                            <SmartImg
+                              url={source.poster}
                               alt={source.title}
                               className='w-full h-full object-cover'
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
                             />
                           )}
                         </div>

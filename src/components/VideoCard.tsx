@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ExternalLink, Heart, Link, PlayCircleIcon, Trash2 } from 'lucide-react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 
@@ -17,12 +16,12 @@ import {
   subscribeToDataUpdates,
 } from '@/lib/db.client';
 import { SearchResult } from '@/lib/types';
-import { processImageUrl } from '@/lib/utils';
 
 import FollowingIcon from '@/components/FollowingIcon';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
 import MobileActionSheet from '@/components/MobileActionSheet';
 import { useNavigationLoading } from '@/components/NavigationLoadingProvider';
+import { SmartImage } from '@/components/SmartImage';
 
 interface VideoCardProps {
   id?: string;
@@ -404,23 +403,12 @@ export default function VideoCard({
       {/* 图片和播放按钮 */}
       <div className='relative aspect-[2/3] overflow-hidden rounded-lg'>
         {!isLoading && <ImagePlaceholder aspectRatio='aspect-[2/3]' />}
-        <Image
-          src={processImageUrl(actualPoster)}
+        <SmartImage
+          url={actualPoster}
           alt={actualTitle}
           fill
           className='object-cover'
-          referrerPolicy='no-referrer'
-          loading='lazy'
           onLoad={() => setIsLoading(true)}
-          onError={(e) => {
-            const img = e.target as HTMLImageElement;
-            if (!img.dataset.retried) {
-              img.dataset.retried = 'true';
-              setTimeout(() => {
-                img.src = processImageUrl(actualPoster);
-              }, 2000);
-            }
-          }}
         />
 
         <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-black-20 to-transparent opacity-0 transition-opacity duration-300 ease-in-out group-hover:opacity-100' />
@@ -618,7 +606,7 @@ export default function VideoCard({
         isOpen={isActionOpen}
         onClose={() => setIsActionOpen(false)}
         title={actualTitle}
-        poster={processImageUrl(actualPoster)}
+        poster={actualPoster}
         sourceName={source_name}
         isAggregate={isAggregate}
         sources={isAggregate && items ? items.map(i => i.source_name || '').filter(Boolean) : []}
