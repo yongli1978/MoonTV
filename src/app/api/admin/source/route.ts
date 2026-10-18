@@ -10,7 +10,7 @@ import { IStorage } from '@/lib/types';
 export const runtime = 'edge';
 
 // 支持的操作类型
-type Action = 'add' | 'disable' | 'enable' | 'delete' | 'sort' | 'batchDisable' | 'batchEnable' | 'batchDelete';
+type Action = 'add' | 'disable' | 'enable' | 'delete' | 'sort' | 'batchDisable' | 'batchEnable' | 'batchDelete' | 'test';
 
 interface BaseBody {
   action?: Action;
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const username = authInfo.username;
 
     // 基础校验
-    const ACTIONS: Action[] = ['add', 'disable', 'enable', 'delete', 'sort', 'batchDisable', 'batchEnable', 'batchDelete'];
+    const ACTIONS: Action[] = ['add', 'disable', 'enable', 'delete', 'sort', 'batchDisable', 'batchEnable', 'batchDelete', 'test'];
     if (!username || !action || !ACTIONS.includes(action)) {
       return NextResponse.json({ error: '参数格式错误' }, { status: 400 });
     }
@@ -181,6 +181,35 @@ export async function POST(request: NextRequest) {
           }
         });
         break;
+      }
+      case 'test': {
+        const { api } = body as { api?: string };
+        if (!api) {
+          return NextResponse.json({ error: '缺少 api 参数' }, { status: 400 });
+        }
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          const testUrl = api.includes('?') ? `${api}&ac=list` : `${api}?ac=list`;
+          const resp = await fetch(testUrl, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          clearTimeout(timeout);
+          if (!resp.ok) {
+            return NextResponse.json({ ok: false, error: `HTTP ${resp.status}` });
+          }
+          const text = await resp.text();
+          // 检查是否返回有效数据（JSON code=1 或 XML 包含 video/list）
+          const isValid = text.includes('"code":1') || text.includes('<video>') || text.includes('<list');
+          if (isValid) {
+            return NextResponse.json({ ok: true, message: '连接正常' });
+          } else {
+            return NextResponse.json({ ok: false, error: '返回数据格式异常' });
+          }
+        } catch (err) {
+          return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : '连接失败' });
+        }
       }
       default:
         return NextResponse.json({ error: '未知操作' }, { status: 400 });

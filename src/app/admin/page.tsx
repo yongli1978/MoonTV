@@ -1095,6 +1095,9 @@ const VideoSourceConfig = ({
   // 批量操作相关状态
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set());
 
+  // 测试状态：key -> 'testing' | 'success' | 'failed'
+  const [testingStatus, setTestingStatus] = useState<Record<string, string>>({});
+
   // dnd-kit 传感器
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1154,6 +1157,40 @@ const VideoSourceConfig = ({
     callSourceApi({ action: 'delete', key }).catch(() => {
       console.error('操作失败', 'delete', key);
     });
+  };
+
+  const handleTest = async (source: DataSource) => {
+    setTestingStatus((prev) => ({ ...prev, [source.key]: 'testing' }));
+    try {
+      const resp = await fetch('/api/admin/source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test', api: source.api }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        setTestingStatus((prev) => ({ ...prev, [source.key]: 'success' }));
+      } else {
+        setTestingStatus((prev) => ({ ...prev, [source.key]: 'failed' }));
+      }
+      // 3秒后清除状态
+      setTimeout(() => {
+        setTestingStatus((prev) => {
+          const next = { ...prev };
+          delete next[source.key];
+          return next;
+        });
+      }, 3000);
+    } catch {
+      setTestingStatus((prev) => ({ ...prev, [source.key]: 'failed' }));
+      setTimeout(() => {
+        setTestingStatus((prev) => {
+          const next = { ...prev };
+          delete next[source.key];
+          return next;
+        });
+      }, 3000);
+    }
   };
 
   const handleAddSource = () => {
@@ -1375,6 +1412,24 @@ const VideoSourceConfig = ({
           </span>
         </td>
         <td className='px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2'>
+          <button
+            onClick={() => handleTest(source)}
+            disabled={testingStatus[source.key] === 'testing'}
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${testingStatus[source.key] === 'success'
+              ? 'bg-green-600 text-white'
+              : testingStatus[source.key] === 'failed'
+                ? 'bg-red-600 text-white'
+                : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
+              }`}
+          >
+            {testingStatus[source.key] === 'testing'
+              ? '测试中...'
+              : testingStatus[source.key] === 'success'
+                ? '✓ 正常'
+                : testingStatus[source.key] === 'failed'
+                  ? '✗ 失败'
+                  : '测试'}
+          </button>
           <button
             onClick={() => handleToggleEnable(source.key)}
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${!source.disabled
